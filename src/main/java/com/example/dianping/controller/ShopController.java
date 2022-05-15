@@ -31,8 +31,11 @@ public class ShopController {
     private final ShopService shopService;
 
     @GetMapping
-    public CommonRs getShopList(@RequestParam(required = false) int categoryId) {
-        return CommonRs.success(shopService.getShopList(categoryId));
+    public CommonRs getShopList(
+        @RequestParam(required = false) Integer categoryId,
+        @RequestParam(defaultValue = "1") int pageNum,
+        @RequestParam(defaultValue = "10") int pageSize) {
+        return CommonRs.success(shopService.getShopList(categoryId, pageNum, pageSize));
     }
 
     @PostMapping
@@ -58,7 +61,7 @@ public class ShopController {
 
     @GetMapping("/recommend")
     public CommonRs recommend(@RequestParam int userId) {
-        List<Shop> result =  shopService.recommend(userId);
+        List<Shop> result = shopService.recommend(userId);
         return CommonRs.success(result);
     }
 
@@ -67,8 +70,9 @@ public class ShopController {
         @RequestParam BigDecimal longitude,
         @RequestParam BigDecimal latitude,
         @RequestParam(required = false) String keyword,
-        @RequestParam(required = false) String categoryId) {
-        List<Shop> result = shopService.search(longitude, latitude, keyword, categoryId);
-        return CommonRs.success(result);
+        @RequestParam(required = false) String categoryId,
+        @RequestParam(defaultValue = "1") int pageNum,
+        @RequestParam(defaultValue = "10") int pageSize) {
+        return CommonRs.success(shopService.search(longitude, latitude, keyword, categoryId, pageNum, pageSize));
     }
 }

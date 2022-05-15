@@ -37,6 +37,8 @@ import com.example.dianping.sdk.AlgorithmRecommendStub;
 import com.example.dianping.service.CategoryService;
 import com.example.dianping.service.SellerService;
 import com.example.dianping.service.ShopService;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 
 /**
  * ShopServiceImpl
@@ -91,14 +93,37 @@ public class ShopServiceImpl implements ShopService {
     }
 
     @Override
-    public List<Shop> search(BigDecimal longitude, BigDecimal latitude, String keyword, String categoryId) {
-        return searchFromEs(longitude, latitude, keyword, categoryId);
+    public PageInfo<Shop> search(BigDecimal longitude, BigDecimal latitude, String keyword, String categoryId,
+        int pageNum, int pageSize) {
+        List<Shop> shops = new ArrayList<>();
+
+        SearchResponse<Map> response = searchFromEs(longitude, latitude, keyword, categoryId, pageNum, pageSize);
+        List<Hit<Map>> hitList = response.hits().hits();
+
+        hitList.forEach(e -> {
+            // 从 MySQL 中搜索详细信息
+            Shop shop = get(Integer.valueOf(e.id()));
+            String distance = e.fields().get("distance").toJson().asJsonArray().get(0).toString();
+            shop.setDistance(new BigDecimal(distance));
+
+            shops.add(shop);
+        });
+
+        long total = response.hits().total().value();
+
+        PageInfo<Shop> shopPageInfo = new PageInfo<>();
+        shopPageInfo.setList(shops);
+        shopPageInfo.setTotal(total);
+        shopPageInfo.setPageNum(pageNum);
+        shopPageInfo.setPageSize(pageSize);
+        return shopPageInfo;
     }
 
     @Override
-    public List<Shop> getShopList(int categoryId) {
+    public PageInfo<Shop> getShopList(Integer categoryId, int pageNum, int pageSize) {
+        PageHelper.startPage(pageNum, pageSize);
         if (Objects.isNull(categoryId)) {
-            return selectAll();
+            return new PageInfo<>(selectAll());
         }
         List<Shop> shops = shopMapper.selectList(new LambdaQueryWrapper<Shop>()
             .eq(Shop::getCategoryId, categoryId)
@@ -107,7 +132,7 @@ public class ShopServiceImpl implements ShopService {
             shop.setSeller(sellerService.get(shop.getSellerId()));
             shop.setCategory(categoryService.get(shop.getCategoryId()));
         });
-        return shops;
+        return new PageInfo<>(shops);
     }
 
     @Override
@@ -143,32 +168,23 @@ public class ShopServiceImpl implements ShopService {
     }
 
 
-    List<Shop> searchFromEs(BigDecimal longitude, BigDecimal latitude, String keyword, String categoryId) {
+    SearchResponse<Map> searchFromEs(BigDecimal longitude, BigDecimal latitude, String keyword, String categoryId,
+        int pageNum, int pageSize) {
         try {
-            List<Shop> shops = new ArrayList<>();
             // 根据条件从 ES 中搜索对应的 shop id
-            SearchRequest searchRequest = buildSmartSearchRequest(longitude, latitude, keyword, categoryId);
+            SearchRequest searchRequest = buildSmartSearchRequest(longitude, latitude, keyword, categoryId, pageNum,
+                pageSize);
 
             SearchResponse<Map> response = elasticsearchClient.search(searchRequest, Map.class);
-            List<Hit<Map>> hitList = response.hits().hits();
 
-            hitList.forEach(e -> {
-                // 从 MySQL 中搜索详细信息
-                Shop shop = get(Integer.valueOf(e.id()));
-                String distance = e.fields().get("distance").toJson().asJsonArray().get(0).toString();
-                shop.setDistance(new BigDecimal(distance));
-
-                shops.add(shop);
-            });
-
-            return shops;
+            return response;
         } catch (IOException e) {
             throw new RuntimeException("SearchFromEs failed.");
         }
     }
 
     private SearchRequest buildSmartSearchRequest(BigDecimal longitude, BigDecimal latitude, String keyword,
-        String categoryId) {
+        String categoryId, int pageNum, int pageSize) {
         // FunctionScores
         List<FunctionScore> functionScores = new ArrayList<>();
 
@@ -203,7 +219,6 @@ public class ShopServiceImpl implements ShopService {
         distanceScriptParams.put("lat", JsonData.of(latitude));
         distanceScriptParams.put("lon", JsonData.of(longitude));
 
-
         // Query
         BoolQuery.Builder builder = new BoolQuery.Builder();
         builder.must(TermQuery.of(t -> t.field("seller_disabled_flag").value(0))._toQuery());
@@ -221,6 +236,8 @@ public class ShopServiceImpl implements ShopService {
                     .source("haversin(lat,lon,doc['location'].lat,doc['location'].lon)")
                     .lang("expression")
                     .params(distanceScriptParams))))
+            .from(pageNum * pageSize - pageSize)
+            .size(pageSize)
             .query(q -> q
                 .functionScore(f -> f
                     .query(q1 -> q1
