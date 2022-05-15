@@ -1,0 +1,60 @@
+# 使用 function score 实现排序模型
+POST /shop/_search?typed_keys=true
+{
+  "_source": "*",
+  "query": {
+    "function_score": {
+      "query": {
+        "bool": {
+          "must": [
+            {
+              "match": {
+                "name": {
+                  "query": "凯悦",
+                  "boost": 0.1
+                }
+              }
+            },
+            {
+              "term": {
+                "seller_disabled_flag": 0
+              }
+            },
+            {
+              "term": {
+                "category_id": 1
+              }
+            }
+          ]
+        }
+      },
+      "functions": [
+        {
+          "gauss": {
+            "location": {
+              "origin": "31.23916171,121.48789949",
+              "scale": "100km",
+              "offset": "0km",
+              "decay":  0.5
+            }
+          },
+          "weight": 9
+        },
+        {
+          "field_value_factor": {
+            "field": "remark_score"
+          },
+          "weight": 0.2
+        },
+        {
+          "field_value_factor": {
+            "field": "seller_remark_score"
+          },
+          "weight": 0.1
+        }
+      ],
+      "score_mode": "sum",
+      "boost_mode": "sum"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package grpc;
+option java_package = "com.example.dianping.proto";
+option java_outer_classname = "DianpingProto";
+option java_multiple_files = true;
+
+service DianPing{
+  rpc Recommend(RecommendRequest) returns (RecommendReply);
+}
+
+message RecommendRequest{
+  int32 user_id = 1;
+}
+message RecommendReply{
+  repeated int32 shop_ids = 1;
+}

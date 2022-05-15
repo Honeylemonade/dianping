@@ -1,0 +1,40 @@
+server:
+  port: 8010
+
+  ## DB
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: qwe159852
+    url: jdbc:mysql://127.0.0.1:3306/dianpingdb?useUnicode=true&characterEncoding=UTF-8
+    type: com.alibaba.druid.pool.DruidDataSource
+
+admin:
+  user-name: root
+  password: 123
+
+#mybatis-plus:
+#  configuration:
+#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+## 百度 Geo
+baidu-geo:
+  uri: https://api.map.baidu.com/geocoding/v3/
+  ak: sytf6FduT0EWYRSABGXq3tpLrCHSHEYj
+
+
+## es服务地址
+elasticsearch:
+  hostname: localhost
+  port: 9200
+
+logging:
+  level:
+    tracer: TRACE
+
+## 算法 Grpc 服务
+algorithm:
+  server:
+    host: "localhost"
+    port: 50051
